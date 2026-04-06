@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Analizador de Facturas Ecuador</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: #0e0e16;
+      color: #e8e8f0;
+      font-family: system-ui, sans-serif;
+    }
+
+    header {
+      background: #16161f;
+      border-bottom: 1px solid #2a2a3a;
+      padding: 18px 16px;
+    }
+    header h1 { font-size: 1.3rem; color: #f0c040; }
+    header p  { font-size: 0.78rem; color: #7070a0; margin-top: 3px; }
+
+    main {
+      padding: 20px 16px;
+      max-width: 560px;
+      margin: 0 auto;
+    }
+
+    /* ── UPLOAD ── */
+    #upload-section label.btn-upload {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      background: #f0c040;
+      color: #111;
+      border-radius: 14px;
+      padding: 22px 16px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      cursor: pointer;
+      margin-bottom: 10px;
+      box-shadow: 0 4px 24px #f0c04033;
+    }
+    #upload-section label.btn-upload span.icon { font-size: 1.5rem; }
+
+    .hint {
+      text-align: center;
+      font-size: 0.78rem;
+      color: #5a5a80;
+      margin-bottom: 24px;
+    }
+
+    /* ── CATEGORÍAS INFO ── */
+    .cat-grid {
+      background: #1a1a28;
+      border-radius: 14px;
+      padding: 16px;
+    }
+    .cat-grid-title {
+      font-size: 0.75rem;
+      color: #7070a0;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .cat-grid-items {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .cat-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 10px;
+      background: #12121e;
+      border-radius: 10px;
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+
+    /* ── LOADING ── */
+    #loading-section {
+      display: none;
+      text-align: center;
+      padding: 70px 16px;
+    }
+    .spinner {
+      width: 44px; height: 44px;
+      border: 3px solid #2a2a3a;
+      border-top-color: #f0c040;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 18px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading-msg { color: #a0a0c0; font-size: 0.9rem; }
+
+    /* ── ERROR ── */
+    .error-box {
+      background: #2a1515;
+      border: 1px solid #e0555544;
+      border-radius: 12px;
+      padding: 14px;
+      color: #e05555;
+      font-size: 0.86rem;
+      margin-bottom: 16px;
+    }
+
+    /* ── RESULTS ── */
+    #result-section { display: none; }
+
+    .invoice-header {
+      background: #1a1a28;
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .invoice-tienda { font-weight: 700; color: #f0c040; }
+    .invoice-fecha  { font-size: 0.75rem; color: #7070a0; margin-top: 2px; }
+    .invoice-total-val { font-size: 1.2rem; font-weight: bold; color: #f0c040; text-align: right; }
+    .invoice-total-lbl { font-size: 0.7rem; color: #7070a0; text-align: right; }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+    .summary-card {
+      background: #1a1a28;
+      border-radius: 12px;
+      padding: 13px 12px;
+      text-align: center;
+    }
+    .summary-card .lbl { font-size: 0.7rem; color: #7070a0; margin-bottom: 5px; }
+    .summary-card .val { font-size: 1.3rem; font-weight: bold; }
+
+    .cat-section { margin-bottom: 16px; }
+    .cat-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .cat-title .name { font-weight: 700; font-size: 0.88rem; }
+    .cat-title .count {
+      border-radius: 20px;
+      padding: 1px 9px;
+      font-size: 0.72rem;
+      font-weight: bold;
+    }
+    .cat-title .subtotal { margin-left: auto; font-weight: 700; font-size: 0.9rem; }
+
+    .cat-table {
+      background: #1a1a28;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .item-row {
+      padding: 11px 14px;
+      border-bottom: 1px solid #ffffff08;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .item-row:last-child { border-bottom: none; }
+    .item-nombre { font-size: 0.86rem; font-weight: 500; word-break: break-word; }
+    .item-det    { font-size: 0.74rem; color: #7070a0; margin-top: 2px; }
+    .item-razon  { color: #4a4a6a; margin-left: 6px; }
+    .item-precio { font-weight: 700; font-size: 0.92rem; white-space: nowrap; }
+
+    .subtotal-row {
+      padding: 10px 14px;
+      background: #12121e;
+      display: flex;
+      justify-content: space-between;
+    }
+    .subtotal-row .lbl {
+      font-size: 0.75rem;
+      color: #7070a0;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .subtotal-row .val { font-weight: 800; }
+
+    label.btn-nueva {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      background: #f0c040;
+      color: #111;
+      border-radius: 12px;
+      padding: 15px;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      margin: 20px 0 32px;
+      box-shadow: 0 4px 20px #f0c04033;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🧾 Analizador de Facturas</h1>
+  <p>Facturas electrónicas Ecuador · SRI</p>
+</header>
+
+<main>
+
+  <!-- UPLOAD -->
+  <div id="upload-section">
+    <label class="btn-upload">
+      <span class="icon">📂</span>
+      Seleccionar factura
+      <input id="fileInput" type="file" accept=".xml,.pdf" style="display:none" />
+    </label>
+    <p class="hint">XML del SRI · PDF</p>
+
+    <div id="error-box" class="error-box" style="display:none"></div>
+
+    <div class="cat-grid">
+      <div class="cat-grid-title">Categorías detectadas</div>
+      <div class="cat-grid-items" id="cat-chips"></div>
+    </div>
+  </div>
+
+  <!-- LOADING -->
+  <div id="loading-section">
+    <div class="spinner"></div>
+    <div id="loading-msg">Procesando…</div>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="result-section">
+    <div class="invoice-header">
+      <div>
+        <div class="invoice-tienda" id="res-tienda"></div>
+        <div class="invoice-fecha"  id="res-fecha"></div>
+      </div>
+      <div>
+        <div class="invoice-total-val" id="res-total"></div>
+        <div class="invoice-total-lbl">total</div>
+      </div>
+    </div>
+
+    <div class="summary-grid" id="summary-grid"></div>
+    <div id="cat-results"></div>
+
+    <label class="btn-nueva">
+      📂 Cargar otra factura
+      <input id="fileInput2" type="file" accept=".xml,.pdf" style="display:none" />
+    </label>
+  </div>
+
+</main>
+
+<script>
+const CATEGORIAS = [
+  { id:"CARNES",   label:"Carnes y Proteínas", icon:"🥩", color:"#e07055" },
+  { id:"LACTEOS",  label:"Lácteos y Huevos",   icon:"🥛", color:"#a0c8ff" },
+  { id:"GRANOS",   label:"Granos y Harinas",   icon:"🍚", color:"#d4a855" },
+  { id:"ASEO",     label:"Aseo Personal",       icon:"🧴", color:"#a78bfa" },
+  { id:"LIMPIEZA", label:"Limpieza del Hogar",  icon:"🧹", color:"#34d399" },
+  { id:"GOLOSINA", label:"Golosinas",           icon:"🍬", color:"#f87171" },
+];
+
+const fmt = (n) => isNaN(n) ? "—" : `$${Number(n).toFixed(2)}`;
+
+// Render category chips on load
+const chipsEl = document.getElementById("cat-chips");
+CATEGORIAS.forEach(c => {
+  const d = document.createElement("div");
+  d.className = "cat-chip";
+  d.style.border = `1px solid ${c.color}33`;
+  d.innerHTML = `<span>${c.icon}</span><span style="color:${c.color}">${c.label}</span>`;
+  chipsEl.appendChild(d);
+});
+
+// Wire both file inputs
+document.getElementById("fileInput").addEventListener("change",  e => handleFile(e.target.files[0]));
+document.getElementById("fileInput2").addEventListener("change", e => handleFile(e.target.files[0]));
+
+function show(id)  { document.getElementById(id).style.display = "block"; }
+function hide(id)  { document.getElementById(id).style.display = "none";  }
+function setMsg(m) { document.getElementById("loading-msg").textContent = m; }
+function showError(msg) {
+  const el = document.getElementById("error-box");
+  el.textContent = "⚠️ " + msg;
+  el.style.display = "block";
+}
+
+function parseSRIxml(xmlText) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xmlText, "text/xml");
+  const get = tag => doc.querySelector(tag)?.textContent?.trim() || "";
+  const tienda = get("razonSocialEmisor") || get("nombreComercial") || "Emisor";
+  const fecha  = get("fechaEmision") || "";
+  const total  = parseFloat(get("importeTotal") || get("totalSinImpuestos") || "0");
+  const items_raw = Array.from(doc.querySelectorAll("detalle")).map(d => ({
+    nombre:         d.querySelector("descripcion")?.textContent?.trim() || "Producto",
+    cantidad:       parseFloat(d.querySelector("cantidad")?.textContent || "1"),
+    precioUnitario: parseFloat(d.querySelector("precioUnitario")?.textContent || "0"),
+    precio_total:   parseFloat(
+      d.querySelector("precioTotalSinImpuesto")?.textContent ||
+      d.querySelector("precioTotal")?.textContent || "0"
+    ),
+  }));
+  return { tienda, fecha, total_factura: total, items_raw };
+}
+
+async function clasificarConIA(items_raw, tienda, fecha) {
+  const lista = items_raw.map((i,idx) =>
+    `${idx+1}. ${i.nombre} (${i.cantidad} x $${i.precioUnitario.toFixed(2)} = $${i.precio_total.toFixed(2)})`
+  ).join("\n");
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 4000,
+      messages: [{ role: "user", content:
+`Clasifica productos de supermercado ecuatoriano en estas categorías exactas:
+- CARNES: carnes, pollo, pescado, embutidos, atún, sardinas
+- LACTEOS: leche, queso, yogur, mantequilla, huevos
+- GRANOS: arroz, fideo, pasta, harina, azúcar, sal, aceite, legumbres, avena, pan de molde
+- ASEO: champú, jabón, pasta dental, desodorante, papel higiénico, pañales, cremas
+- LIMPIEZA: detergente, cloro, desinfectante, esponjas, bolsas basura, lavavajillas
+- GOLOSINA: chocolates, caramelos, galletas, snacks, papas fritas, refrescos, colas, alcohol, helados, bebidas energizantes
+
+Factura de "${tienda}" (${fecha}):
+${lista}
+
+Responde SOLO JSON sin backticks:
+{"items":[{"nombre":"x","cantidad":1,"precioUnitario":0.00,"precio_total":0.00,"categoria":"CARNES","razon":"razón breve"}]}`
+      }],
+    }),
+  });
+  if (!res.ok) throw new Error(`Error API: ${res.status}`);
+  const data  = await res.json();
+  const raw   = data.content.map(b => b.text || "").join("");
+  const clean = raw.replace(/```json|```/g,"").trim();
+  return JSON.parse(clean).items;
+}
+
+async function analizarPDF(file) {
+  const base64Data = await new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload  = () => res(r.result.split(",")[1]);
+    r.onerror = () => rej(new Error("Error leyendo PDF"));
+    r.readAsDataURL(file);
+  });
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 4000,
+      system: `Analiza facturas ecuatorianas. Clasifica en: CARNES, LACTEOS, GRANOS, ASEO, LIMPIEZA o GOLOSINA. Responde SOLO JSON sin backticks: {"tienda":"x","fecha":"x","total_factura":0.00,"items":[{"nombre":"x","cantidad":1,"precioUnitario":0.00,"precio_total":0.00,"categoria":"CARNES","razon":"x"}]}`,
+      messages: [{ role:"user", content:[
+        { type:"document", source:{ type:"base64", media_type:"application/pdf", data:base64Data }},
+        { type:"text", text:"Analiza esta factura ecuatoriana." }
+      ]}],
+    }),
+  });
+  if (!res.ok) throw new Error(`Error API: ${res.status}`);
+  const data  = await res.json();
+  const raw   = data.content.map(b => b.text || "").join("");
+  const clean = raw.replace(/```json|```/g,"").trim();
+  return JSON.parse(clean);
+}
+
+async function handleFile(file) {
+  if (!file) return;
+  document.getElementById("error-box").style.display = "none";
+  hide("upload-section");
+  hide("result-section");
+  show("loading-section");
+
+  try {
+    let result;
+    if (file.name.toLowerCase().endsWith(".xml")) {
+      setMsg("Leyendo XML del SRI…");
+      const parsed = parseSRIxml(await file.text());
+      setMsg("Clasificando productos con IA…");
+      const items = await clasificarConIA(parsed.items_raw, parsed.tienda, parsed.fecha);
+      result = {
+        tienda: parsed.tienda,
+        fecha:  parsed.fecha,
+        total_factura: parsed.total_factura || items.reduce((s,i) => s + i.precio_total, 0),
+        items,
+      };
+    } else if (file.name.toLowerCase().endsWith(".pdf")) {
+      setMsg("Leyendo PDF con IA… puede tardar unos segundos");
+      result = await analizarPDF(file);
+    } else {
+      throw new Error("Solo se aceptan archivos .xml o .pdf");
+    }
+
+    renderResult(result);
+    hide("loading-section");
+    show("result-section");
+
+  } catch (err) {
+    hide("loading-section");
+    show("upload-section");
+    showError(err.message);
+  }
+}
+
+function renderResult(result) {
+  const items = result.items || [];
+
+  // Header
+  document.getElementById("res-tienda").textContent = result.tienda || "Factura";
+  const fechaEl = document.getElementById("res-fecha");
+  fechaEl.textContent = result.fecha ? "📅 " + result.fecha : "";
+  document.getElementById("res-total").textContent = fmt(result.total_factura);
+
+  // Summary
+  const grouped = {};
+  CATEGORIAS.forEach(c => { grouped[c.id] = items.filter(i => i.categoria === c.id); });
+  const totalPor  = id => grouped[id].reduce((s,i) => s + (i.precio_total||0), 0);
+  const totalGol  = totalPor("GOLOSINA");
+  const totalEse  = CATEGORIAS.filter(c => c.id !== "GOLOSINA").reduce((s,c) => s + totalPor(c.id), 0);
+  const totalGen  = totalGol + totalEse;
+  const pct       = totalGen > 0 ? ((totalGol/totalGen)*100).toFixed(1) : 0;
+  const pctColor  = pct > 30 ? "#f87171" : pct > 15 ? "#f0c040" : "#50c878";
+
+  const summaryData = [
+    { label:"✅ Esenciales", value: fmt(totalEse),  color:"#50c878" },
+    { label:"🍬 Golosinas",  value: fmt(totalGol),  color:"#f87171" },
+    { label:"📦 Productos",  value: items.length,   color:"#5599ff" },
+    { label:"% golosinas",   value: pct + "%",      color: pctColor },
+  ];
+  const sg = document.getElementById("summary-grid");
+  sg.innerHTML = "";
+  summaryData.forEach(s => {
+    sg.innerHTML += `
+      <div class="summary-card">
+        <div class="lbl">${s.label}</div>
+        <div class="val" style="color:${s.color}">${s.value}</div>
+      </div>`;
+  });
+
+  // Categories
+  const cr = document.getElementById("cat-results");
+  cr.innerHTML = "";
+  CATEGORIAS.forEach(cat => {
+    const catItems = grouped[cat.id];
+    if (!catItems.length) return;
+    const subtotal = totalPor(cat.id);
+
+    let rowsHTML = catItems.map(item => `
+      <div class="item-row">
+        <div style="flex:1;min-width:0">
+          <div class="item-nombre">${item.nombre}</div>
+          <div class="item-det">
+            ${item.cantidad} × ${fmt(item.precioUnitario)}
+            ${item.razon ? `<span class="item-razon">· ${item.razon}</span>` : ""}
+          </div>
+        </div>
+        <div class="item-precio" style="color:${cat.color}">${fmt(item.precio_total)}</div>
+      </div>`).join("");
+
+    cr.innerHTML += `
+      <div class="cat-section">
+        <div class="cat-title">
+          <span>${cat.icon}</span>
+          <span class="name" style="color:${cat.color}">${cat.label}</span>
+          <span class="count" style="background:${cat.color}22;color:${cat.color};border:1px solid ${cat.color}44">${catItems.length}</span>
+          <span class="subtotal" style="color:${cat.color}">${fmt(subtotal)}</span>
+        </div>
+        <div class="cat-table">
+          ${rowsHTML}
+          <div class="subtotal-row">
+            <span class="lbl">Subtotal</span>
+            <span class="val" style="color:${cat.color}">${fmt(subtotal)}</span>
+          </div>
+        </div>
+      </div>`;
+  });
+}
+</script>
+</body>
+</html>
