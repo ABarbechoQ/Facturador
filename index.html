@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Analizador de Facturas Ecuador</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { min-height: 100vh; background: #0e0e16; color: #e8e8f0; font-family: system-ui, sans-serif; }
+
+    header { background: #16161f; border-bottom: 1px solid #2a2a3a; padding: 18px 16px; }
+    header h1 { font-size: 1.3rem; color: #f0c040; }
+    header p  { font-size: 0.78rem; color: #7070a0; margin-top: 3px; }
+
+    main { padding: 20px 16px; max-width: 560px; margin: 0 auto; }
+
+    /* UPLOAD */
+    label.btn-upload {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      width: 100%; background: #f0c040; color: #111; border-radius: 14px;
+      padding: 22px 16px; font-size: 1.1rem; font-weight: bold; cursor: pointer;
+      margin-bottom: 10px; box-shadow: 0 4px 24px #f0c04033;
+    }
+    .hint { text-align: center; font-size: 0.78rem; color: #5a5a80; margin-bottom: 24px; }
+
+    /* CATEGORÍAS INFO */
+    .info-box { background: #1a1a28; border-radius: 14px; padding: 16px; margin-bottom: 8px; }
+    .info-title { font-size: 0.75rem; color: #7070a0; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
+    .main-cat { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #12121e; border-radius: 10px; margin-bottom: 6px; }
+    .main-cat .icon { font-size: 1.1rem; }
+    .main-cat .name { font-size: 0.82rem; font-weight: 700; }
+    .sub-cats { font-size: 0.72rem; color: #7070a0; margin-left: auto; text-align: right; }
+
+    /* LOADING */
+    #loading-section { display: none; text-align: center; padding: 70px 16px; }
+    .spinner { width: 44px; height: 44px; border: 3px solid #2a2a3a; border-top-color: #f0c040; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 18px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading-msg { color: #a0a0c0; font-size: 0.9rem; }
+
+    .error-box { background: #2a1515; border: 1px solid #e0555544; border-radius: 12px; padding: 14px; color: #e05555; font-size: 0.86rem; margin-bottom: 16px; }
+
+    /* RESULTS */
+    #result-section { display: none; }
+
+    .invoice-header { background: #1a1a28; border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; }
+    .invoice-tienda { font-weight: 700; color: #f0c040; }
+    .invoice-fecha  { font-size: 0.75rem; color: #7070a0; margin-top: 2px; }
+    .invoice-total-val { font-size: 1.2rem; font-weight: bold; color: #f0c040; text-align: right; }
+    .invoice-total-lbl { font-size: 0.7rem; color: #7070a0; text-align: right; }
+
+    /* RESUMEN GENERAL */
+    .resumen-general { background: #1a1a28; border-radius: 12px; padding: 14px; margin-bottom: 18px; }
+    .resumen-title { font-size: 0.75rem; color: #7070a0; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
+    .resumen-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid #ffffff08; }
+    .resumen-row:last-child { border-bottom: none; font-weight: 800; font-size: 1rem; }
+    .resumen-label { font-size: 0.88rem; display: flex; align-items: center; gap: 6px; }
+    .resumen-val   { font-weight: 700; font-size: 0.92rem; }
+
+    /* GRUPO PRINCIPAL */
+    .grupo { margin-bottom: 20px; }
+    .grupo-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 14px; border-radius: 12px 12px 0 0;
+      font-weight: 700; font-size: 0.95rem;
+    }
+    .grupo-total { margin-left: auto; font-size: 1rem; font-weight: 800; }
+    .grupo-body  { background: #1a1a28; border-radius: 0 0 12px 12px; overflow: hidden; }
+
+    /* SUBCATEGORÍA */
+    .subcat-section { border-bottom: 1px solid #ffffff08; }
+    .subcat-section:last-child { border-bottom: none; }
+    .subcat-header {
+      display: flex; align-items: center; gap: 6px;
+      padding: 9px 14px; background: #1e1e2e;
+      font-size: 0.82rem; font-weight: 700;
+      cursor: pointer; user-select: none;
+    }
+    .subcat-header .sc-count { border-radius: 20px; padding: 1px 8px; font-size: 0.7rem; font-weight: bold; }
+    .subcat-header .sc-total { margin-left: auto; font-size: 0.85rem; font-weight: 700; }
+    .subcat-header .arrow { font-size: 0.7rem; margin-left: 4px; color: #7070a0; transition: transform 0.2s; }
+    .subcat-header.open .arrow { transform: rotate(180deg); }
+
+    .subcat-items { display: none; }
+    .subcat-items.open { display: block; }
+
+    .item-row { padding: 10px 14px; border-bottom: 1px solid #ffffff06; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+    .item-row:last-child { border-bottom: none; }
+    .item-nombre { font-size: 0.84rem; font-weight: 500; word-break: break-word; }
+    .item-det    { font-size: 0.73rem; color: #7070a0; margin-top: 2px; }
+    .item-razon  { color: #4a4a6a; margin-left: 6px; }
+    .item-precio { font-weight: 700; font-size: 0.9rem; white-space: nowrap; }
+
+    .subcat-subtotal { padding: 8px 14px; background: #12121e; display: flex; justify-content: space-between; }
+    .subcat-subtotal .lbl { font-size: 0.72rem; color: #7070a0; text-transform: uppercase; letter-spacing: 0.06em; }
+    .subcat-subtotal .val { font-weight: 800; font-size: 0.88rem; }
+
+    /* GOLOSINAS (sin subcats) */
+    .cat-simple { margin-bottom: 20px; }
+    .cat-simple-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .cat-simple-header .name  { font-weight: 700; font-size: 0.88rem; }
+    .cat-simple-header .count { border-radius: 20px; padding: 1px 9px; font-size: 0.72rem; font-weight: bold; }
+    .cat-simple-header .total { margin-left: auto; font-weight: 700; font-size: 0.9rem; }
+    .cat-simple-body { background: #1a1a28; border-radius: 12px; overflow: hidden; }
+
+    label.btn-nueva {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      width: 100%; background: #f0c040; color: #111; border-radius: 12px;
+      padding: 15px; font-size: 1rem; font-weight: bold; cursor: pointer;
+      margin: 20px 0 32px; box-shadow: 0 4px 20px #f0c04033;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🧾 Analizador de Facturas</h1>
+  <p>Facturas electrónicas Ecuador · SRI</p>
+</header>
+
+<main>
+
+  <!-- UPLOAD -->
+  <div id="upload-section">
+    <label class="btn-upload">
+      <span style="font-size:1.5rem">📂</span>
+      Seleccionar factura
+      <input id="fileInput" type="file" accept=".xml,.pdf" style="display:none" />
+    </label>
+    <p class="hint">XML del SRI · PDF</p>
+
+    <div id="error-box" class="error-box" style="display:none"></div>
+
+    <div class="info-box">
+      <div class="info-title">Estructura de categorías</div>
+      <div id="cat-info"></div>
+    </div>
+  </div>
+
+  <!-- LOADING -->
+  <div id="loading-section">
+    <div class="spinner"></div>
+    <div id="loading-msg">Procesando…</div>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="result-section">
+    <div class="invoice-header">
+      <div>
+        <div class="invoice-tienda" id="res-tienda"></div>
+        <div class="invoice-fecha"  id="res-fecha"></div>
+      </div>
+      <div>
+        <div class="invoice-total-val" id="res-total"></div>
+        <div class="invoice-total-lbl">total factura</div>
+      </div>
+    </div>
+
+    <div class="resumen-general">
+      <div class="resumen-title">Resumen general</div>
+      <div id="resumen-rows"></div>
+    </div>
+
+    <div id="cat-results"></div>
+
+    <label class="btn-nueva">
+      📂 Cargar otra factura
+      <input id="fileInput2" type="file" accept=".xml,.pdf" style="display:none" />
+    </label>
+  </div>
+
+</main>
+
+<script>
+// ── ESTRUCTURA ────────────────────────────────────────────────────
+const ESTRUCTURA = [
+  {
+    id: "ALIMENTICIO", label: "Alimenticio", icon: "🍽️", color: "#f0a050",
+    subcats: [
+      { id: "CARNES",   label: "Carnes y Proteínas", icon: "🥩", color: "#e07055" },
+      { id: "LACTEOS",  label: "Lácteos y Huevos",   icon: "🥛", color: "#a0c8ff" },
+      { id: "GRANOS",   label: "Granos y Harinas",   icon: "🍚", color: "#d4a855" },
+      { id: "FRUTAS",   label: "Frutas y Verduras",  icon: "🥦", color: "#50c878" },
+    ]
+  },
+  {
+    id: "ESTUDIOS", label: "Estudios", icon: "📚", color: "#7eb8f7",
+    subcats: [
+      { id: "UTILES",    label: "Útiles escolares", icon: "✏️", color: "#fbbf24" },
+      { id: "UNIFORMES", label: "Uniformes",        icon: "👔", color: "#a78bfa" },
+      { id: "LIBROS",    label: "Libros",            icon: "📖", color: "#60a5fa" },
+      { id: "TECNOLOGIA",label: "Tecnología",        icon: "💻", color: "#34d399" },
+    ]
+  },
+  {
+    id: "ROPA",     label: "Ropa",             icon: "👕", color: "#c084fc",
+    subcats: []
+  },
+  {
+    id: "ASEO",     label: "Aseo Personal",    icon: "🧴", color: "#a78bfa",
+    subcats: []
+  },
+  {
+    id: "LIMPIEZA", label: "Limpieza del Hogar", icon: "🧹", color: "#34d399",
+    subcats: []
+  },
+  {
+    id: "GOLOSINA", label: "Golosinas",        icon: "🍬", color: "#f87171",
+    subcats: []
+  },
+];
+
+// Mapa plano de todas las subcats + grupos simples
+const ALL_CATS = [];
+ESTRUCTURA.forEach(g => {
+  if (g.subcats.length > 0) {
+    g.subcats.forEach(s => ALL_CATS.push({ ...s, grupo: g.id }));
+  } else {
+    ALL_CATS.push({ id: g.id, label: g.label, icon: g.icon, color: g.color, grupo: g.id });
+  }
+});
+
+const fmt = (n) => isNaN(n) ? "—" : `$${Number(n).toFixed(2)}`;
+
+// ── RENDER INFO ───────────────────────────────────────────────────
+const infoEl = document.getElementById("cat-info");
+ESTRUCTURA.forEach(g => {
+  const subs = g.subcats.length > 0
+    ? g.subcats.map(s => `${s.icon} ${s.label}`).join(", ")
+    : "";
+  infoEl.innerHTML += `
+    <div class="main-cat" style="border:1px solid ${g.color}33">
+      <span class="icon">${g.icon}</span>
+      <span class="name" style="color:${g.color}">${g.label}</span>
+      ${subs ? `<span class="sub-cats">${subs}</span>` : ""}
+    </div>`;
+});
+
+// ── FILE INPUTS ───────────────────────────────────────────────────
+document.getElementById("fileInput").addEventListener("change",  e => handleFile(e.target.files[0]));
+document.getElementById("fileInput2").addEventListener("change", e => handleFile(e.target.files[0]));
+
+function show(id) { document.getElementById(id).style.display = "block"; }
+function hide(id) { document.getElementById(id).style.display = "none";  }
+function setMsg(m){ document.getElementById("loading-msg").textContent = m; }
+function showError(msg) {
+  const el = document.getElementById("error-box");
+  el.textContent = "⚠️ " + msg;
+  el.style.display = "block";
+}
+
+// ── XML PARSER ────────────────────────────────────────────────────
+function parseSRIxml(xmlText) {
+  const doc = new DOMParser().parseFromString(xmlText, "text/xml");
+  const get = tag => doc.querySelector(tag)?.textContent?.trim() || "";
+  return {
+    tienda: get("razonSocialEmisor") || get("nombreComercial") || "Emisor",
+    fecha:  get("fechaEmision") || "",
+    total_factura: parseFloat(get("importeTotal") || get("totalSinImpuestos") || "0"),
+    items_raw: Array.from(doc.querySelectorAll("detalle")).map(d => ({
+      nombre:         d.querySelector("descripcion")?.textContent?.trim() || "Producto",
+      cantidad:       parseFloat(d.querySelector("cantidad")?.textContent || "1"),
+      precioUnitario: parseFloat(d.querySelector("precioUnitario")?.textContent || "0"),
+      precio_total:   parseFloat(d.querySelector("precioTotalSinImpuesto")?.textContent || d.querySelector("precioTotal")?.textContent || "0"),
+    })),
+  };
+}
+
+// ── CLAUDE API ────────────────────────────────────────────────────
+async function clasificarConIA(items_raw, tienda, fecha) {
+  const lista = items_raw.map((i,idx) =>
+    `${idx+1}. ${i.nombre} (${i.cantidad} x $${i.precioUnitario.toFixed(2)} = $${i.precio_total.toFixed(2)})`
+  ).join("\n");
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 4000,
+      messages: [{ role: "user", content:
+`Clasifica productos de supermercado/tienda ecuatoriana en estas categorías exactas:
+- CARNES: carnes, pollo, pescado, embutidos, atún, sardinas, mariscos, huevos
+- LACTEOS: leche, queso, yogur, mantequilla, crema, lácteos
+- GRANOS: arroz, fideo, pasta, harina, azúcar, sal, aceite, legumbres, avena, pan de molde, quinua, maíz
+- FRUTAS: frutas, verduras, vegetales, hortalizas
+- UTILES: cuadernos, lápices, esferos, mochilas, reglas, tijeras, útiles escolares
+- UNIFORMES: uniformes, camisetas escolares, pantalones escolares, zapatos escolares
+- LIBROS: libros, textos escolares, diccionarios
+- TECNOLOGIA: calculadoras, USB, audífonos, cables, tecnología escolar
+- ROPA: ropa, calzado, zapatos, ropa de adultos, accesorios de vestir
+- ASEO: champú, jabón, pasta dental, desodorante, papel higiénico, pañales, cremas, maquillaje, perfume
+- LIMPIEZA: detergente, cloro, desinfectante, esponjas, bolsas basura, lavavajillas, escoba, trapeador
+- GOLOSINA: chocolates, caramelos, galletas dulces, snacks, papas fritas, chifles, refrescos, colas, alcohol, helados, bebidas energizantes, chicles, gelatinas, postres
+
+Factura de "${tienda}" (${fecha}):
+${lista}
+
+Responde SOLO JSON sin backticks:
+{"items":[{"nombre":"x","cantidad":1,"precioUnitario":0.00,"precio_total":0.00,"categoria":"CARNES","razon":"razón breve"}]}`
+      }],
+    }),
+  });
+  if (!res.ok) throw new Error(`Error API: ${res.status}`);
+  const data  = await res.json();
+  const raw   = data.content.map(b => b.text || "").join("");
+  const clean = raw.replace(/```json|```/g,"").trim();
+  return JSON.parse(clean).items;
+}
+
+async function analizarPDF(file) {
+  const base64Data = await new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload  = () => res(r.result.split(",")[1]);
+    r.onerror = () => rej(new Error("Error leyendo PDF"));
+    r.readAsDataURL(file);
+  });
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 4000,
+      system: `Analiza facturas ecuatorianas. Clasifica cada producto en: CARNES, LACTEOS, GRANOS, FRUTAS, UTILES, UNIFORMES, LIBROS, TECNOLOGIA, ROPA, ASEO, LIMPIEZA o GOLOSINA. Responde SOLO JSON sin backticks: {"tienda":"x","fecha":"x","total_factura":0.00,"items":[{"nombre":"x","cantidad":1,"precioUnitario":0.00,"precio_total":0.00,"categoria":"CARNES","razon":"x"}]}`,
+      messages: [{ role:"user", content:[
+        { type:"document", source:{ type:"base64", media_type:"application/pdf", data: base64Data }},
+        { type:"text", text:"Analiza esta factura ecuatoriana y clasifica todos los productos." }
+      ]}],
+    }),
+  });
+  if (!res.ok) throw new Error(`Error API: ${res.status}`);
+  const data  = await res.json();
+  const raw   = data.content.map(b => b.text || "").join("");
+  const clean = raw.replace(/```json|```/g,"").trim();
+  return JSON.parse(clean);
+}
+
+// ── HANDLE FILE ───────────────────────────────────────────────────
+async function handleFile(file) {
+  if (!file) return;
+  document.getElementById("error-box").style.display = "none";
+  hide("upload-section");
+  hide("result-section");
+  show("loading-section");
+
+  try {
+    let result;
+    if (file.name.toLowerCase().endsWith(".xml")) {
+      setMsg("Leyendo XML del SRI…");
+      const parsed = parseSRIxml(await file.text());
+      setMsg("Clasificando productos con IA…");
+      const items = await clasificarConIA(parsed.items_raw, parsed.tienda, parsed.fecha);
+      result = {
+        tienda: parsed.tienda, fecha: parsed.fecha,
+        total_factura: parsed.total_factura || items.reduce((s,i) => s + i.precio_total, 0),
+        items,
+      };
+    } else if (file.name.toLowerCase().endsWith(".pdf")) {
+      setMsg("Leyendo PDF con IA… puede tardar unos segundos");
+      result = await analizarPDF(file);
+    } else {
+      throw new Error("Solo se aceptan archivos .xml o .pdf");
+    }
+    renderResult(result);
+    hide("loading-section");
+    show("result-section");
+  } catch (err) {
+    hide("loading-section");
+    show("upload-section");
+    showError(err.message);
+  }
+}
+
+// ── RENDER RESULT ─────────────────────────────────────────────────
+function renderResult(result) {
+  const items = result.items || [];
+
+  document.getElementById("res-tienda").textContent = result.tienda || "Factura";
+  document.getElementById("res-fecha").textContent  = result.fecha ? "📅 " + result.fecha : "";
+  document.getElementById("res-total").textContent  = fmt(result.total_factura);
+
+  // Agrupar items por categoria
+  const byId = {};
+  ALL_CATS.forEach(c => { byId[c.id] = []; });
+  items.forEach(item => {
+    const cat = item.categoria?.toUpperCase() || "GOLOSINA";
+    if (byId[cat] !== undefined) byId[cat].push(item);
+    else byId["GOLOSINA"].push(item);
+  });
+
+  const totalPor = id => byId[id].reduce((s,i) => s + (i.precio_total||0), 0);
+
+  // Totales por grupo principal
+  const totalGrupo = (g) => {
+    if (g.subcats.length > 0) return g.subcats.reduce((s,sc) => s + totalPor(sc.id), 0);
+    return totalPor(g.id);
+  };
+  const totalGeneral = ESTRUCTURA.reduce((s,g) => s + totalGrupo(g), 0);
+
+  // ── RESUMEN ──
+  const rr = document.getElementById("resumen-rows");
+  rr.innerHTML = "";
+  ESTRUCTURA.forEach(g => {
+    const t = totalGrupo(g);
+    if (t === 0) return;
+    rr.innerHTML += `
+      <div class="resumen-row">
+        <span class="resumen-label">${g.icon} ${g.label}</span>
+        <span class="resumen-val" style="color:${g.color}">${fmt(t)}</span>
+      </div>`;
+  });
+  rr.innerHTML += `
+    <div class="resumen-row">
+      <span class="resumen-label" style="color:#f0c040">💰 TOTAL</span>
+      <span class="resumen-val"   style="color:#f0c040">${fmt(totalGeneral)}</span>
+    </div>`;
+
+  // ── DETALLE POR GRUPO ──
+  const cr = document.getElementById("cat-results");
+  cr.innerHTML = "";
+
+  ESTRUCTURA.forEach(g => {
+    const t = totalGrupo(g);
+    if (t === 0) return;
+
+    if (g.subcats.length > 0) {
+      // Grupo con subcategorías
+      let subcatsHTML = "";
+      g.subcats.forEach(sc => {
+        const scItems = byId[sc.id];
+        if (!scItems.length) return;
+        const scTotal = totalPor(sc.id);
+        const rowsHTML = scItems.map(item => `
+          <div class="item-row">
+            <div style="flex:1;min-width:0">
+              <div class="item-nombre">${item.nombre}</div>
+              <div class="item-det">${item.cantidad} × ${fmt(item.precioUnitario)}${item.razon ? `<span class="item-razon">· ${item.razon}</span>` : ""}</div>
+            </div>
+            <div class="item-precio" style="color:${sc.color}">${fmt(item.precio_total)}</div>
+          </div>`).join("");
+
+        subcatsHTML += `
+          <div class="subcat-section">
+            <div class="subcat-header" onclick="toggleSubcat(this)">
+              <span>${sc.icon}</span>
+              <span style="color:${sc.color}">${sc.label}</span>
+              <span class="sc-count" style="background:${sc.color}22;color:${sc.color};border:1px solid ${sc.color}44">${scItems.length}</span>
+              <span class="sc-total" style="color:${sc.color}">${fmt(scTotal)}</span>
+              <span class="arrow">▼</span>
+            </div>
+            <div class="subcat-items open">
+              ${rowsHTML}
+              <div class="subcat-subtotal">
+                <span class="lbl">Subtotal</span>
+                <span class="val" style="color:${sc.color}">${fmt(scTotal)}</span>
+              </div>
+            </div>
+          </div>`;
+      });
+
+      cr.innerHTML += `
+        <div class="grupo">
+          <div class="grupo-header" style="background:${g.color}18;border:1px solid ${g.color}33">
+            <span style="font-size:1.2rem">${g.icon}</span>
+            <span style="color:${g.color}">${g.label}</span>
+            <span class="grupo-total" style="color:${g.color}">${fmt(t)}</span>
+          </div>
+          <div class="grupo-body">${subcatsHTML}</div>
+        </div>`;
+
+    } else {
+      // Grupo simple (sin subcats)
+      const gItems = byId[g.id];
+      const rowsHTML = gItems.map(item => `
+        <div class="item-row">
+          <div style="flex:1;min-width:0">
+            <div class="item-nombre">${item.nombre}</div>
+            <div class="item-det">${item.cantidad} × ${fmt(item.precioUnitario)}${item.razon ? `<span class="item-razon">· ${item.razon}</span>` : ""}</div>
+          </div>
+          <div class="item-precio" style="color:${g.color}">${fmt(item.precio_total)}</div>
+        </div>`).join("");
+
+      cr.innerHTML += `
+        <div class="cat-simple">
+          <div class="cat-simple-header">
+            <span style="font-size:1rem">${g.icon}</span>
+            <span class="name" style="color:${g.color}">${g.label}</span>
+            <span class="count" style="background:${g.color}22;color:${g.color};border:1px solid ${g.color}44">${gItems.length}</span>
+            <span class="total" style="color:${g.color}">${fmt(t)}</span>
+          </div>
+          <div class="cat-simple-body">
+            ${rowsHTML}
+            <div class="subcat-subtotal">
+              <span class="lbl">Subtotal</span>
+              <span class="val" style="color:${g.color}">${fmt(t)}</span>
+            </div>
+          </div>
+        </div>`;
+    }
+  });
+}
+
+// ── TOGGLE SUBCATS ────────────────────────────────────────────────
+function toggleSubcat(header) {
+  header.classList.toggle("open");
+  const items = header.nextElementSibling;
+  items.classList.toggle("open");
+}
+</script>
+</body>
+</html>
